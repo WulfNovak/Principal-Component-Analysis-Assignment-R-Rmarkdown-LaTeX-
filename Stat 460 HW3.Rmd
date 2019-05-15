@@ -1,0 +1,190 @@
+---
+title: "Stat 460 HW3"
+author: "Wulf Novak"
+date: "March 24, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+# warning = FALSE, message = FALSE
+```
+
+```{r Load Data, warning = FALSE, echo = FALSE, message = FALSE}
+rm(list=ls())
+setwd("C:/Data")
+library(readxl)
+
+malidt <- read_excel("malifarmdata.xlsx", col_names = TRUE, skip = 1) 
+Fleadt <- read_excel("fleabeetledata.xlsx", col_names = TRUE, skip = 2)
+Tempdt <- read_excel("temperaturedata.xlsx", col_names = TRUE, skip = 1)
+```
+# Mali Farm Data PCA
+
+```{r Malidt 1, echo = FALSE, fig.height = 6.8}
+Malidt <- malidt[-c(25,34,69,72),]
+par(mfrow = c(2,1), mar=c(.5,2,2,1))
+boxplot(malidt, col = 'green')
+boxplot(Malidt, col = 'green')
+```
+
+ The first boxplot illustrates severe outliers in the Family Variable, DistRD Variable, and Cattle Variable. I removed 1 Family observation (145), 2 DistRD observations (Both 500), and 1 Cattle observation (109) - The second boxplot features these omissions and shows arguably less severe outliers. 
+ 
+### Correlation Matrix
+```{r, echo = FALSE}
+library(knitr)
+library(kableExtra)
+
+# a <- round(cor(Malidt), 4)
+a <- data.frame(round(cor(Malidt), 4))
+kable(a, "latex", booktabs = T, linesep = "") %>% column_spec(1, bold = T) %>% row_spec(0, bold = T)
+```
+
+Here I have chosen to use the correlation matrix. This is due to the variables having both different scales and also different units. For example, the DistRD variable ranges from 0 to 500, whereas the Millet variable ranges from 0 to 12 - each with unknown units. Also, since it's not clear what the data represents, it may be the 'safer' option to use the correlation matrix. 
+
+### Eigenvalues
+```{r, echo = FALSE}
+R <- cor(Malidt)
+eig <- eigen(R)
+eig$values
+cumsum(eig$values)/sum(eig$values)
+```
+
+The last 4 eigenvalues are quite small (0.5 and smaller). The larger the eigenvalue, the larger the proportion of variation that eigenvalue accounts for. The first eigen value accounts for roughly 46% of variation.  The first 2 eigen values account for roughly 62% of the variation, first 3 for 74%, first 4 for 83% of the variation, etc. 
+
+### PCA Individual Variances and Eigenvalue Comparisons
+```{r}
+std.mali <- scale(Malidt)
+pcaMalidt <- t(t(eig$vectors) %*% t(std.mali))
+round(sum(diag(cov(pcaMalidt))) - sum(eig$values),5)
+```
+The sum of individual variances perfectly equals the sum of the eigenvalues  - This is a good sign. 
+
+```{r}
+PCAmali <- princomp(Malidt, cor = TRUE)
+sum(diag(cov(PCAmali$scores))) - sum(eig$values)
+```
+Notably, when using the PCA function the sum of the individual variances does NOT equal the sum of the eigenvalues. :( \newline
+However, the PCA function output was used to create the following screeplot 
+
+
+### PCA Selection
+```{r, echo = FALSE, fig.height = 3.5}
+(1/9)*sum(eig$values)
+eig$values
+screeplot(PCAmali, type = 'lines')
+```
+
+Without having previous knowledge about the level of variation we want our PCs to explain, PC selection can be determined by a scree plot and the elbow method, or by choosing eigenvalues greater than the average eigenvalues - (or by googling more methods). The above screeplot shows an elbow at 2 PCs. The 'average method' would suggest using 3 PCs, because those PC eigenvalues are above the average eigenvalue of 1. I am going to use the first 2 PCs.
+
+### Eigenvectors for chosen PCs
+```{r, echo = FALSE}
+eig$vectors[,1:2]
+```
+
+### PC Plot
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+library(ggplot2)
+library(ggfortify)
+
+autoplot(PCAmali, loadings = TRUE, loadings.label = TRUE,  loadings.label.size = 3)
+```
+
+The most significant variables for PC 1 were Family, Cotton, and Bull. The most significant variables for PC 2 were DistRD. Also, cattle and maize are closely grouped and effect both PCs, but primarily PC 1. 
+
+# Flea Beetle Data PCA
+
+```{r}
+Fleadt <- Fleadt[-c(20), 2:9]
+```
+I have chosen to remove observation 20 due to the NAs for 4 of the variables. This is done in order to produce a proper correlation matrix without NAs. In addition, I have removed the experiment column. 
+
+### Covariance Matrix
+```{r, echo = FALSE}
+b <- data.frame(round(cov(Fleadt), 4))
+kable(b, "latex", booktabs = T, linesep = "") %>% column_spec(1, bold = T) %>% row_spec(0, bold = T)
+```
+
+Notably, some of the pre-requisites for PCA, such as all of the variables being similarly correlated, does not exist with this data set. Having looked at the pairs plot (Not included to save space), and looking at the correlation/covariance matrices, it is clear that some of the variables have little correlation, and others have either positive or negative correlation. This indicates that this data is not ideal for PCA. Despite this, I have chosen to use the covariance matrix to continue the analysis because each column has data in a similar numerical range. 
+
+### Eigenvalues
+```{r Flea, echo = FALSE}
+R <- cov(Fleadt)
+eig <- eigen(R)
+eig$values
+cumsum(eig$values)/sum(eig$values)
+```
+
+The first 2 eigenvalues for this data set are 'large' (745 and 453), whereas the remaining eigenvalues are relatively small (below 162 and smaller). Nearly 71% of the variation is explained by the first 2 eigenvalues, and then the sharp drop off in eigenvalue size results in increasingly small amounts of variation explantion from the remaining eigenvalues.  
+
+### PCA Selection
+
+```{r, echo = FALSE}
+PCAflea <- princomp(Fleadt)
+
+screeplot(PCAflea, type = 'lines')
+```
+
+Looking at the screeplot, a noticable elbow exists after the first 3 PCs. Because of this, only the first 3 PCs will be reported. 
+
+$\vspace{4cm}$
+
+### Eigenvectors for chosen PCs
+```{r}
+eig$vectors[,1:3]
+```
+
+### PC Plot
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+autoplot(PCAflea, loadings = TRUE, loadings.label = TRUE,  loadings.label.size = 3)
+```
+
+Unfortunately, I haven't been able to produce multiple PC graphs for each combination of the PCs as I haven't found a way to do so with the princomp output. Because of this, I will only describe the variable contribution to the first to PCs explained by the above graph. The variables the contribute the most to PC 1 are x2...3 and x2...7 - however, those vectors are nearly at a 45 degree angle and therefore also contribute a reasonable amount to PC 2. x1...2, the last variable that contributes a lot to PC 1 and 2 mostly contributes to PC 2. 
+
+# Temperature Data PCA
+
+```{r}
+boxplot(Tempdt, col = 'green')
+```
+
+This boxplot accentuates how certain variables have wildly different levels of variation. Notably, X1 and X4 seem to very similarly distributed data, and X2 and X5 seem to have very similarly distributed data. 
+
+### Correlation Matrix
+```{r, echo = FALSE}
+a <- data.frame(round(cor(Tempdt), 4))
+kable(a, "latex", booktabs = T, linesep = "") %>% column_spec(1, bold = T) %>% row_spec(0, bold = T)
+```
+
+The correlation matrix was chosen due to the variables being in very different numerical ranges, which may indicated different units of measurement. 
+
+### Eigenvalues
+```{r Malidt 2}
+R <- cor(Tempdt)
+eig <- eigen(R)
+eig$values
+cumsum(eig$values)/sum(eig$values)
+```
+The first eigenvalue is very large (6). The first 3 eigenvalues are above 1, and the remaining 8 are below 1. The first eigenvalue explains the majority of the variation at 54%, first 2 explain 74%, first 3 explain 84% and the first 4 eigenvalues explain 91%. 
+
+### PCA Selection
+```{r, echo = FALSE}
+PCAtemp <- princomp(Tempdt, cor = TRUE)
+
+screeplot(PCAtemp, type = 'lines')
+```
+
+The scree plot does not show a clear elbow. However, I will use the first 3 PCs because their eigenvalues are all above 1.  
+
+$\vspace{4cm}$
+
+### Eigenvectors for chosen PCs
+```{r}
+eig$vectors[,1:3]
+```
+
+### PC Plot
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+autoplot(PCAtemp, loadings = TRUE, loadings.label = TRUE,  loadings.label.size = 5)
+```
+
+Numerous variables appear to make up PC 1, however, the ones the most make up PC 1 are x3 and x4. The variable that most makes up PC 2 is x10. All of the other variables aside from x7 have an impact on both PC 1 and PC2 - x2, x6, x1, and x11 are slightly more influenced by PC1 then PC2.
